@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>แอดมิน</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1624;--card:#1a2438;--text:#f4f6fb;--mute:#9aa7c0;--acc:#ffb347;--bar:#2b3a58}
+@media (prefers-color-scheme:light){:root{--bg:#fff7ea;--card:#fff;--text:#1d2433;--mute:#6a748a;--acc:#e8820c;--bar:#f1e3c9}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Prompt',system-ui,sans-serif;display:flex;justify-content:center}
+main{width:100%;max-width:480px;padding:28px 18px 40px}
+h1{font-size:22px;margin:0 0 16px}
+input{width:100%;background:var(--card);color:var(--text);border:1px solid var(--bar);border-radius:10px;padding:10px;margin-bottom:8px;font:inherit}
+button{font:inherit;border:0;border-radius:10px;padding:9px 14px;margin:4px 6px 4px 0;cursor:pointer;background:var(--bar);color:var(--text)}
+button.pri{background:var(--acc);color:#1d2433;font-weight:600}
+.item{background:var(--card);border-radius:14px;padding:12px;margin-bottom:10px}
+#msg{color:var(--mute);margin-top:10px;min-height:22px}
+a{color:var(--acc)}
+</style>
+</head>
+<body>
+<main>
+<h1>⚙️ แอดมิน</h1>
+<div id="login" style="display:none">
+ <input id="pw" type="password" placeholder="รหัสผ่านแอดมิน">
+ <button class="pri" id="go">เข้าสู่ระบบ</button>
+</div>
+<div id="panel" style="display:none">
+ <input id="ttl" placeholder="หัวข้อ">
+ <input id="sub" placeholder="คำอธิบายใต้หัวข้อ">
+ <div id="opts"></div>
+ <button id="add">+ เพิ่มตัวเลือก</button>
+ <button class="pri" id="save">บันทึก</button>
+ <button id="reset">ล้างคะแนนโหวต</button>
+ <button id="out">ออกจากระบบ</button>
+ <p><a href="/" target="_blank">ดูหน้าโหวต</a></p>
+</div>
+<div id="msg"></div>
+</main>
+<script>
+const $=id=>document.getElementById(id),msg=$('msg');
+let draft=[],data=null;
+const api=(m,u,b)=>fetch(u,{method:m,headers:{'Content-Type':'application/json'},body:b?JSON.stringify(b):undefined});
+function drawOpts(){
+ const box=$('opts');box.innerHTML='';
+ draft.forEach((o,k)=>{
+  const w=document.createElement('div');w.className='item';
+  const a=document.createElement('input');a.placeholder='ชื่อเรื่อง';a.value=o.t;a.oninput=()=>o.t=a.value;
+  const b=document.createElement('input');b.placeholder='คำอธิบายสั้นๆ';b.value=o.d||'';b.oninput=()=>o.d=b.value;
+  const x=document.createElement('button');x.textContent='ลบ';x.onclick=()=>{draft.splice(k,1);drawOpts();};
+  const c=document.createElement('small');c.style.color='var(--mute)';c.textContent=data&&data.counts[o.id]!=null?' '+data.counts[o.id]+' โหวต':'';
+  w.append(a,b,x,c);box.appendChild(w);
+ });
+}
+function show(d){
+ data=d;$('login').style.display='none';$('panel').style.display='block';
+ $('ttl').value=d.title;$('sub').value=d.subtitle||'';
+ draft=d.options.map(o=>({...o}));drawOpts();
+}
+async function init(){
+ const r=await api('GET','/api/admin/me');
+ if(r.ok)show(await r.json());else $('login').style.display='block';
+}
+$('go').onclick=async()=>{
+ const r=await api('POST','/api/admin/login',{password:$('pw').value});
+ if(r.ok){msg.textContent='';$('pw').value='';init();}
+ else msg.textContent=r.status===429?'ลองผิดบ่อยเกินไป รอสักครู่':'รหัสผ่านไม่ถูกต้อง';
+};
+$('pw').onkeydown=e=>{if(e.key==='Enter')$('go').click();};
+$('add').onclick=()=>{draft.push({id:'',t:'',d:''});drawOpts();};
+$('save').onclick=async()=>{
+ const r=await api('PUT','/api/admin/poll',{title:$('ttl').value,subtitle:$('sub').value,options:draft});
+ if(r.ok){show(await r.json());msg.textContent='บันทึกแล้ว ✓';}
+ else msg.textContent=(await r.json()).error==='need_two'?'ต้องมีอย่างน้อย 2 ตัวเลือก':'บันทึกไม่สำเร็จ';
+};
+let arm=false;
+$('reset').onclick=async()=>{
+ if(!arm){arm=true;$('reset').textContent='แตะอีกครั้งเพื่อยืนยันล้างโหวต';return;}
+ arm=false;$('reset').textContent='ล้างคะแนนโหวต';
+ const r=await api('POST','/api/admin/reset');
+ if(r.ok){show(await r.json());msg.textContent='ล้างโหวตแล้ว';}
+};
+$('out').onclick=async()=>{await api('POST','/api/admin/logout');location.reload();};
+init();
+</script>
+</body>
+</html>

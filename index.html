@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>โหวตหนังเรื่องต่อไป</title>
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f1624;--card:#1a2438;--text:#f4f6fb;--mute:#9aa7c0;--acc:#ffb347;--bar:#2b3a58}
+@media (prefers-color-scheme:light){:root{--bg:#fff7ea;--card:#fff;--text:#1d2433;--mute:#6a748a;--acc:#e8820c;--bar:#f1e3c9}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Prompt',system-ui,sans-serif;display:flex;justify-content:center;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+main{width:100%;max-width:440px;padding:28px 18px 40px}
+h1{font-size:26px;margin:0 0 6px;text-align:center}
+p.sub{color:var(--mute);text-align:center;margin:0 0 22px;font-size:15px}
+.opt{position:relative;display:block;width:100%;text-align:left;background:var(--card);color:var(--text);border:2px solid transparent;border-radius:16px;padding:14px 16px;margin-bottom:12px;font:inherit;cursor:pointer;overflow:hidden}
+.opt .fill{position:absolute;inset:0 auto 0 0;width:0;background:var(--bar);transition:width .4s}
+.opt .row{position:relative;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.opt b{font-weight:600}
+.opt small{display:block;color:var(--mute);margin-top:2px}
+.opt .pct{font-weight:700;color:var(--acc);white-space:nowrap}
+.opt.mine{border-color:var(--acc)}
+#msg{text-align:center;color:var(--mute);font-size:14px;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+<h1 id="title"></h1>
+<p class="sub" id="sub"></p>
+<div id="list"></div>
+<div id="msg"></div>
+</main>
+<script>
+const list=document.getElementById('list'),msg=document.getElementById('msg');
+function render(d){
+ document.getElementById('title').textContent=d.title;
+ document.getElementById('sub').textContent=d.subtitle||'';
+ document.title=d.title;
+ list.innerHTML='';
+ d.options.forEach(o=>{
+  const c=d.counts[o.id]||0,p=d.total?Math.round(c/d.total*100):0;
+  const b=document.createElement('button');
+  b.className='opt'+(d.mine===o.id?' mine':'');
+  b.innerHTML='<span class="fill"></span><span class="row"><span><b></b><small></small></span><span class="pct"></span></span>';
+  b.querySelector('.fill').style.width=p+'%';
+  b.querySelector('b').textContent=o.t;
+  b.querySelector('small').textContent=o.d||'';
+  b.querySelector('.pct').textContent=d.total?p+'%':'';
+  b.onclick=()=>vote(o.id);
+  list.appendChild(b);
+ });
+ msg.textContent=d.total?('รวม '+d.total+' โหวต'+(d.mine?' · โหวตแล้ว แตะเพื่อเปลี่ยน':'')):'ยังไม่มีโหวต เป็นคนแรกเลย!';
+}
+async function load(){
+ try{const r=await fetch('/api/poll');render(await r.json());}catch(e){msg.textContent='โหลดไม่สำเร็จ';}
+}
+async function vote(id){
+ try{
+  const r=await fetch('/api/vote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({optionId:id})});
+  if(!r.ok)throw 0;render(await r.json());
+ }catch(e){msg.textContent='โหวตไม่สำเร็จ ลองใหม่อีกครั้ง';}
+}
+load();setInterval(load,15000);
+</script>
+</body>
+</html>
